@@ -1,0 +1,36 @@
+# Combining k8s-web-to-nginx application deployment and service
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-web-to-nginx
+spec:
+  type: LoadBalancer
+  selector:
+    app: k8s-web-to-nginx
+  ports:
+  - port: 3343  # The port to expose the service
+    targetPort: 3000  # The port on which the application listens
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-web-to-nginx
+spec:
+  replicas: 3 # Number of pod replicas
+  selector:
+    matchLabels:
+      app: k8s-web-to-nginx
+  template:
+    metadata:
+      labels:
+        app: k8s-web-to-nginx
+    spec:
+      containers:
+        - name: k8s-web-to-nginx
+          image: chukaokeke/k8s-web-to-nginx
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "250m"
+          ports:
+            - containerPort: 3000 # The port the application listens on

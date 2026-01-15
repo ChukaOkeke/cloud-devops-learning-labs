@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: k8s-web-hello
+  name: k8s-web-hello # Name of the deployment
 spec:
-  replicas: 5
+  replicas: 5 # Number of pod replicas
   selector:
     matchLabels:
       app: k8s-web-hello
@@ -20,4 +20,4 @@ spec:
               memory: "128Mi"
               cpu: "250m"
           ports:
-            - containerPort: 3000
+            - containerPort: 3000 # The port the application listens on

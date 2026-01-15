@@ -3,9 +3,9 @@ kind: Service
 metadata:
   name: k8s-web-hello
 spec:
-  type: LoadBalancer
+  type: LoadBalancer  # Expose the service externally
   selector:
     app: k8s-web-hello
   ports:
-  - port: 3030
-    targetPort: 3000
+  - port: 3030  # The port to expose the service
+    targetPort: 3000  # The port on which the application listens
