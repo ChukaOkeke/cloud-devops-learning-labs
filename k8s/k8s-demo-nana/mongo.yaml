@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+  labels:
+    app: mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  # Configuration for the pods
+  template:
+    metadata:
+      labels:   # Common identifier for the pods
+        app: mongo
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:5.0
+        ports:
+        - containerPort: 27017    # Port that the container listens on
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+spec:
+  selector:   # Select pods to forward the request to
+    app.kubernetes.io/name: mongo
+  ports:
+    - protocol: TCP
+      port: 27017  # Port exposed by the Service
+      targetPort: 27017   # Port on the pod to forward the request to/container port

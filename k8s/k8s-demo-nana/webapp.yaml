@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-deployment
+  labels:
+    app: webapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+  # Configuration for the pods
+  template:
+    metadata:
+      labels:   # Common identifier for the pods
+        app: webapp
+    spec:
+      containers:
+      - name: webapp
+        image: nanajanashia/k8s-demo-app:v1.0
+        ports:
+        - containerPort: 3000    # Port that the container listens on
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service
+spec:
+  selector:   # Select pods to forward the request to
+    app.kubernetes.io/name: webapp
+  ports:
+    - protocol: TCP
+      port: 3000  # Port exposed by the Service
+      targetPort: 3000   # Port on the pod to forward the request to/container port
