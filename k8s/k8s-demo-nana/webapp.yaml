@@ -20,15 +20,33 @@ spec:
         image: nanajanashia/k8s-demo-app:v1.0
         ports:
         - containerPort: 3000    # Port that the container listens on
+        env: 
+        - name: USER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: mongo_user
+        - name: USER_PWD
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: mongo_password
+        - name: DB_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mongo-config
+              key: mongo-url
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: webapp-service
 spec:
+  type: NodePort
   selector:   # Select pods to forward the request to
     app.kubernetes.io/name: webapp
   ports:
     - protocol: TCP
       port: 3000  # Port exposed by the Service
       targetPort: 3000   # Port on the pod to forward the request to/container port
+      nodePort: 32000  # Port on each node to expose the Service

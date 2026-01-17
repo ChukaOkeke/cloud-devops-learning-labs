@@ -20,6 +20,18 @@ spec:
         image: mongo:5.0
         ports:
         - containerPort: 27017    # Port that the container listens on
+        # Setting environment variables for MongoDB credentials from Secret
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: mongo_user
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: mongo_password
 ---
 apiVersion: v1
 kind: Service
