@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1  # Custom resource definition for Argo CD Application
+kind: Application
+metadata:
+  name: myapp-argo-application
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/ChukaOkeke/cloud-devops-learning-labs # App config Git repo
+    targetRevision: HEAD
+    path: argocd/argocd-app-config-nana/dev # K8s Manifests path
+  destination: 
+    server: https://kubernetes.default.svc  # Default-created K8s internal service for the API server
+    namespace: myapp  # Namespace to apply the configuration 
+
+  # Sync policy to automate the deployment and manage the lifecycle of the application
+  syncPolicy:
+    syncOptions:
+    - CreateNamespace=true  # Auto-create the namespace if it doesn't exist
+
+    automated:
+      selfHeal: true # Automatically override any manual changes to the desired state defined in Git
+      prune: true # Automatically delete resources that are no longer part of the desired state
