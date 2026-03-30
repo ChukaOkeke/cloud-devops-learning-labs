@@ -20,5 +20,5 @@ spec:
     - CreateNamespace=true  # Auto-create the namespace if it doesn't exist
 
     automated:
-      selfHeal: true # Automatically override any manual changes to the desired state defined in Git
+      selfHeal: true # Automatically override/revert any manual changes to the desired state defined in Git
       prune: true # Automatically delete resources that are no longer part of the desired state
