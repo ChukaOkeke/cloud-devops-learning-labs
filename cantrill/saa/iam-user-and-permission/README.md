@@ -1,0 +1,1 @@
+This project creates an IAM User and assigns permissions on 2 S3 buckets via inline and managed policies. 
