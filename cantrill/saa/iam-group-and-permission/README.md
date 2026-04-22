@@ -1,0 +1,1 @@
+This project creates an IAM Group, adds a user, and assigns permissions via managed policies to the group on S3 buckets.
