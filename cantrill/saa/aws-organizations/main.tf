@@ -43,6 +43,11 @@ resource "aws_organizations_organization" "org" {
 resource "aws_organizations_account" "prod" {
   name  = "Production"
   email = "liamrosie@hotmail.com"
+  parent_id = aws_organizations_organizational_unit.prod_ou.id # Moves account to PROD-OU
+
+  lifecycle {
+    ignore_changes = [name] # Ignore changes to the name attribute since the account is created manually and tracked in Terraform state
+  }
 }
 
 # Create Role in PROD account to allow Master account to assume it and role-switch
@@ -72,7 +77,23 @@ resource "aws_organizations_account" "dev" {
   name      = "Development"
   email     = "chukybombo@yahoo.com"
   role_name = "OrganizationAccountAccessRole" # Created automatically by AWS
+  parent_id = aws_organizations_organizational_unit.dev_ou.id # Moves account to DEV-OU
 }
+
+# Create OUs to organize the accounts hierarchically
+# Create the PROD Organizational Unit
+resource "aws_organizations_organizational_unit" "prod_ou" {
+  name      = "PROD"
+  parent_id = aws_organizations_organization.org.roots[0].id
+}
+
+# Create the DEV Organizational Unit
+resource "aws_organizations_organizational_unit" "dev_ou" {
+  name      = "DEV"
+  parent_id = aws_organizations_organization.org.roots[0].id
+}
+
+
 
 # Configure the S3 backend for remote state management
 terraform {
@@ -80,7 +101,7 @@ terraform {
     bucket         = "my-cantrill-labs-terraform-state" # The unique bucket name
     key            = "foundation/terraform.tfstate" # The path within the bucket where the state file will be stored
     region         = "us-east-1"  # Variables can't be used, must be hardcoded
-    dynamodb_table = "terraform-state-locking"
+    dynamodb_table = "terraform-state-locking" 
     encrypt        = true
     profile = "iamadmin-general" 
   }
