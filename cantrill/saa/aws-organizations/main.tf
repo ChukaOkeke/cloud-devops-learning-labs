@@ -27,6 +27,9 @@ provider "aws" {
 #   }
 }
 
+# Create data source to get the current caller identity for the Master account (General)
+data "aws_caller_identity" "current" {}
+
 # Create an AWS Organization with ALL features enabled and allow access to IAM and CloudTrail services for the organization
 resource "aws_organizations_organization" "org" {
   feature_set = "ALL"
@@ -69,4 +72,33 @@ resource "aws_organizations_account" "dev" {
   name      = "Development"
   email     = "chukybombo@yahoo.com"
   role_name = "OrganizationAccountAccessRole" # Created automatically by AWS
+}
+
+# Configure the S3 backend for remote state management
+terraform {
+  backend "s3" {
+    bucket         = "my-cantrill-labs-terraform-state" # The unique bucket name
+    key            = "foundation/terraform.tfstate" # The path within the bucket where the state file will be stored
+    region         = "us-east-1"  # Variables can't be used, must be hardcoded
+    dynamodb_table = "terraform-state-locking"
+    encrypt        = true
+    profile = "iamadmin-general" 
+  }
+}
+
+# Display the account IDs of the Master, PROD, and DEV accounts as output variables for easy reference
+# The Management Account ID (General)
+output "management_account_id" {
+  value       = data.aws_caller_identity.current.account_id
+  description = "The ID of the General/Management account"
+}
+
+# The Invited Account (Prod)
+output "prod_account_id" {
+  value = aws_organizations_account.prod.id
+}
+
+# The Created Account (Dev)
+output "dev_account_id" {
+  value = aws_organizations_account.dev.id
 }
