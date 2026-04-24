@@ -37,6 +37,12 @@ resource "aws_organizations_organization" "org" {
     "iam.amazonaws.com",
     "cloudtrail.amazonaws.com"
   ]
+
+  # Enable SCPs
+  enabled_policy_types = [
+    "SERVICE_CONTROL_POLICY",
+    "TAG_POLICY" # Optional, but good to have enabled
+  ]
 }
 
 # Track the PROD account manually invited into the organization in the Terraform state (run terraform import aws_organizations_account.prod 697790871179 after manually inviting the account)
@@ -107,7 +113,7 @@ terraform {
   }
 }
 
-# Display the account IDs of the Master, PROD, and DEV accounts as output variables for easy reference
+# Display the account IDs of the Master, PROD, and DEV accounts, and the OU IDs as output variables for easy reference
 # The Management Account ID (General)
 output "management_account_id" {
   value       = data.aws_caller_identity.current.account_id
@@ -122,4 +128,13 @@ output "prod_account_id" {
 # The Created Account (Dev)
 output "dev_account_id" {
   value = aws_organizations_account.dev.id
+}
+
+# The OU IDs for reference in another demo
+output "prod_ou_id" {
+  value = aws_organizations_organizational_unit.prod_ou.id
+}
+
+output "dev_ou_id" {
+  value = aws_organizations_organizational_unit.dev_ou.id
 }
