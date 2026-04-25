@@ -1,23 +1,23 @@
 # Landing Zone
 terraform {
-  required_version = ">= 1.0.0"
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.0"
     }
   }
+}
 
   # S3 Backend for the NEW DEMO's state
+terraform {
   backend "s3" {
-    bucket  = "my-cantrill-labs-terraform-state"
-    key     = "demos/scp/terraform.tfstate" # Unique key for this demo
-    region  = "us-east-1"
-    dynamodb_table = "terraform-state-locking" 
-    encrypt        = true # Enable encryption at rest in S3 for the state file
-    profile = "iamadmin-general"
-  }
+      bucket  = "my-cantrill-labs-terraform-state"
+      key     = "demos/scp/terraform.tfstate" # Unique key for this demo
+      region  = "us-east-1"
+      dynamodb_table = "terraform-state-locking" 
+      encrypt        = true # Enable encryption at rest in S3 for the state file
+      profile = "iamadmin-general"
+    }
 }
 
 
