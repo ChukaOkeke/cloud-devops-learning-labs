@@ -1,0 +1,1 @@
+This project creates a static website using s3 with object versioning 
