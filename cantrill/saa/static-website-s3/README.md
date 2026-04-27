@@ -1,1 +1,0 @@
-This project creates an Organizational Trail that monitors all management events/activites (global services and multi-region) across all accounts within the Organization, and persists this data in an S3 bucket and log it into a CloudWatch Log Group. 
