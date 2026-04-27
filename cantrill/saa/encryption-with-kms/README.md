@@ -1,0 +1,1 @@
+This project creates a KMS key and key policy for encryption
