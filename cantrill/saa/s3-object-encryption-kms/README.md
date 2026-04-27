@@ -1,0 +1,1 @@
+This project demonstrates S3 object upload with KMS encryption and role separation
