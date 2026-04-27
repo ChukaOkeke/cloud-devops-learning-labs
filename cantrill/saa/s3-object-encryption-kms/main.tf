@@ -120,19 +120,19 @@ resource "aws_s3_object" "object_cmk_kms" {
 }
 
 # Inline Identity Policy to Deny KMS Access
-resource "aws_iam_user_policy" "deny_kms_iamadmin" {
-  name = "DenyKMSAccess"
-  user = "iamadmin"
+# resource "aws_iam_user_policy" "deny_kms_iamadmin" {
+#   name = "DenyKMSAccess"
+#   user = "iamadmin"
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid      = "ExplicitDenyKMS"
-        Effect   = "Deny"
-        Action   = "kms:*"
-        Resource = "*"
-      }
-    ]
-  })
-}
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Sid      = "ExplicitDenyKMS"
+#         Effect   = "Deny"
+#         Action   = "kms:*"
+#         Resource = "*"
+#       }
+#     ]
+#   })
+# }
