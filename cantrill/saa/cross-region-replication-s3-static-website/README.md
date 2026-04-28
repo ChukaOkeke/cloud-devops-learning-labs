@@ -1,0 +1,1 @@
+This project demonstrates cross-region replication of an S3 static website 
