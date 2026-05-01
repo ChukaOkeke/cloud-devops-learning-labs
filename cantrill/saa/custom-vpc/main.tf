@@ -144,14 +144,6 @@ resource "aws_security_group" "bastion_sg" {
 
 }
 
-# # Create a network interface with an ip in the subnet that was created
-# resource "aws_network_interface" "jumpbox_nic" {
-#   subnet_id       = aws_subnet.asgard_subnets["sn-web-A"].id  # Reference the Subnet ID from the created Subnet
-#   #private_ips     = [var.server_private_ip] # Assign a specific private IP address to the host within the subnet's CIDR block
-#   security_groups = [aws_security_group.allow_web.id] # Attach the security group created below
-
-# }
-
 # Dynamically fetch the latest Amazon Linux 2023 AMI
 data "aws_ami" "amazon_linux_2023" {
   most_recent = true
@@ -181,20 +173,4 @@ output "bastion_public_ip" {
   value = aws_instance.asgard_bastion.public_ip
 }
 
-# # Create EC2 instance in the web subnet (sn-web-A) to serve as a jumpbox and web server
-# resource "aws_instance" "asgard_jumpbox" {
-#   ami           = var.ec2_instance_ami # Define the AMI ID for the EC2 instance with variable reference in variables.tf
-#   instance_type = var.ec2_instance_type # Define the instance type for the EC2 instance with variable reference in variables.tf
-#   availability_zone = "us-east-1a"
-#   key_name = "EC2 Tutorial"
-  
-#   network_interface {
-#     device_index = 0
-#     network_interface_id = aws_network_interface.web_server_nic.id # Reference the Network Interface ID from the created Network Interface  
-#   }
-
-#   tags = {
-#     Name = "asgard-bastion"
-#   }
-# }
 
