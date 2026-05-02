@@ -66,7 +66,7 @@ resource "aws_subnet" "asgard_subnets" {
 }
 
 
-# Configure web public subnets and jumpbox (EC2 instance)
+# Configure web public subnets
 # Create Internet Gateway and attach to the custom VPC
 resource "aws_internet_gateway" "asgard_vpc1_igw" {
   vpc_id = aws_vpc.asgard_vpc_1.id  # Reference the VPC ID from the created VPC
@@ -76,7 +76,7 @@ resource "aws_internet_gateway" "asgard_vpc1_igw" {
   }
 }
 
-# Create Custom Route Table
+# Create Custom Route Table that points to the Internet Gateway
 resource "aws_route_table" "asgard_vpc1_rt_web" {
   vpc_id = aws_vpc.asgard_vpc_1.id  # Reference the VPC ID from the created VPC
 
@@ -115,32 +115,166 @@ resource "aws_route_table_association" "web_c" {
   route_table_id = aws_route_table.asgard_vpc1_rt_web.id
 }
 
-# Launch a bastion host in the web subnet (sn-web-A) to serve as a jumpbox for accessing resources in private subnets.
-# Create a Security Group to allow all SSH traffic
-resource "aws_security_group" "bastion_sg" {
-  name        = "bastion-sg"
-  description = "Allow SSH inbound traffic"
-  vpc_id      = aws_vpc.asgard_vpc_1.id # Reference the VPC created above
 
-  # Inbound: Allow SSH from everywhere (0.0.0.0/0)
-  ingress {
-    description = "SSH from anywhere"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+# # Launch a bastion host in the web subnet (sn-web-A) to serve as a jumpbox for accessing resources in private subnets.
+# # Create a Security Group to allow all SSH traffic
+# resource "aws_security_group" "bastion_sg" {
+#   name        = "bastion-sg"
+#   description = "Allow SSH inbound traffic"
+#   vpc_id      = aws_vpc.asgard_vpc_1.id # Reference the VPC created above
+
+#   # Inbound: Allow SSH from everywhere (0.0.0.0/0)
+#   ingress {
+#     description = "SSH from anywhere"
+#     from_port   = 22
+#     to_port     = 22
+#     protocol    = "tcp"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
+
+#   # Outbound: Allow all traffic
+#   egress {
+#     from_port   = 0
+#     to_port     = 0
+#     protocol    = "-1"
+#     cidr_blocks = ["0.0.0.0/0"]
+#     ipv6_cidr_blocks = ["::/0"]
+#   }
+
+#   tags = { Name = "bastion-sg" }
+
+# }
+
+# # Dynamically fetch the latest Amazon Linux 2023 AMI
+# data "aws_ami" "amazon_linux_2023" {
+#   most_recent = true
+#   owners      = ["amazon"]
+#   filter {
+#     name   = "name"
+#     values = ["al2023-ami-*-x86_64"]
+#   }
+# }
+
+# # Create EC2 instance in the web subnet (sn-web-A) to serve as a jumpbox/bastion host
+# resource "aws_instance" "asgard_bastion" {
+#   ami                         = data.aws_ami.amazon_linux_2023.id
+#   instance_type               = "t2.micro" # Free-tier friendly
+#   subnet_id                   = aws_subnet.asgard_subnets["sn-web-A"].id
+#   vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
+#   associate_public_ip_address = true
+#   key_name = "ec2-key-pair" # Created key pair in the AWS Console for SSH access
+
+#   tags = {
+#     Name = "asgard-bastion"
+#   }
+# }
+
+# # Output the public IP so you can SSH in immediately
+# output "bastion_public_ip" {
+#   value = aws_instance.asgard_bastion.public_ip
+# }
+
+
+# Provide HA private outbound-only internet access for private subnets using NAT Gateways in the web subnets in all AZs
+locals {
+  az_list = ["A", "B", "C"]
+}
+
+# Create Elastic IPs for the NAT Gateways
+resource "aws_eip" "nat_eip" {
+  for_each = toset(local.az_list)
+  domain   = "vpc"
+
+  tags = { Name = "asgard-nat-eip-${each.key}" }
+}
+
+# Create NAT Gateways in each Web (Public) Subnet for outbound-only internet access from private subnets. Each NAT Gateway is associated with an Elastic IP for a stable public IP address.
+resource "aws_nat_gateway" "nat_gw" {
+  for_each      = toset(local.az_list)
+  allocation_id = aws_eip.nat_eip[each.key].id  # Attach the corresponding Elastic IP to each NAT Gateway
+  subnet_id     = aws_subnet.asgard_subnets["sn-web-${each.key}"].id # Reference the web subnets using their keys
+
+  tags = { Name = "asgard-nat-gw-${each.key}" }
+}
+
+# Create Private Route Tables (one per AZ) that point to the NAT Gateway in their AZ for outbound internet access. This ensures that if one AZ goes down, only the private subnets in that AZ lose internet access, while the others remain unaffected.
+resource "aws_route_table" "private_rt" {
+  for_each = toset(local.az_list)
+  vpc_id   = aws_vpc.asgard_vpc_1.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat_gw[each.key].id
   }
 
-  # Outbound: Allow all traffic
+  tags = { Name = "asgard-private-rt-${each.key}" }
+}
+
+# Associate the Route Tables with the Private Subnets
+# We associate app, db, and reserved subnets to their local AZ's route table
+locals {
+  # List of private tier prefixes
+  private_tiers = ["app", "db", "reserved"]
+
+  # Generate a map of all private subnet-to-route-table associations
+  private_assoc_map = merge([
+    for az in local.az_list : {
+      for tier in local.private_tiers : 
+        "sn-${tier}-${az}" => az
+    }
+  ]...)
+}
+
+resource "aws_route_table_association" "private_associations" {
+  for_each = local.private_assoc_map
+
+  subnet_id      = aws_subnet.asgard_subnets[each.key].id
+  route_table_id = aws_route_table.private_rt[each.value].id
+}
+
+
+# Launch a private EC2 instance in the app subnet (sn-app-A) to demonstrate that it can access the internet via the NAT Gateway, but is not directly accessible from the internet. This instance will be used for testing connectivity using AWS Systems Manager (SSM) Session Manager. This is a more secure and modern approach than bastion hosts for managing instances in private subnets.
+# Create the IAM Role for Systems Manager (SSM) that allows the EC2 service to communicate with the SSM backend
+resource "aws_iam_role" "app_ssm_role" {
+  name = "AsgardAppSSMRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+}
+
+# Attach the required managed policy for SSM
+resource "aws_iam_role_policy_attachment" "ssm_managed" {
+  role       = aws_iam_role.app_ssm_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+# Create the Instance Profile that EC2 will use
+resource "aws_iam_instance_profile" "app_instance_profile" {
+  name = "AsgardAppInstanceProfile"
+  role = aws_iam_role.app_ssm_role.name
+}
+
+# Create a Security Group to allow all SSH traffic
+resource "aws_security_group" "app_sg" {
+  name        = "asgard-app-sg"
+  description = "Security Group for internal app tier"
+  vpc_id      = aws_vpc.asgard_vpc_1.id # Reference the VPC created above
+
+  # Allow all outbound traffic (needed for SSM and updates)
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
   }
 
-  tags = { Name = "bastion-sg" }
+  tags = { Name = "asgard-app-sg" }
 
 }
 
@@ -154,23 +288,17 @@ data "aws_ami" "amazon_linux_2023" {
   }
 }
 
-# Create EC2 instance in the web subnet (sn-web-A) to serve as a jumpbox/bastion host
-resource "aws_instance" "asgard_bastion" {
+# Create a private EC2 instance in the app subnet (sn-app-A)
+resource "aws_instance" "asgard_app_server" {
   ami                         = data.aws_ami.amazon_linux_2023.id
-  instance_type               = "t2.micro" # Free-tier friendly
-  subnet_id                   = aws_subnet.asgard_subnets["sn-web-A"].id
-  vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
-  associate_public_ip_address = true
-  key_name = "ec2-key-pair" # Created key pair in the AWS Console for SSH access
+  instance_type               = "t3.micro" # More cost effective for modern apps
+  subnet_id                   = aws_subnet.asgard_subnets["sn-app-A"].id
+  iam_instance_profile = aws_iam_instance_profile.app_instance_profile.name
+  vpc_security_group_ids      = [aws_security_group.app_sg.id]
+  associate_public_ip_address = false # No public IP for private instance
+  # key_name = "ec2-key-pair" # Created key pair in the AWS Console for SSH access
 
   tags = {
-    Name = "asgard-bastion"
+    Name = "asgard-app-ec2"
   }
 }
-
-# Output the public IP so you can SSH in immediately
-output "bastion_public_ip" {
-  value = aws_instance.asgard_bastion.public_ip
-}
-
-
