@@ -116,3 +116,63 @@ resource "aws_instance" "asgard_ec2" {
   
   tags = { Name = "Asgard-EC2" }
 }
+
+# Stop the EC2 instance to ensure file system consistency before creating the AMI
+resource "aws_ec2_instance_state" "ec2_state" {
+  instance_id = aws_instance.asgard_ec2.id
+  state      = "stopped"
+}
+
+# Create an AMI from the EC2 instance
+resource "aws_ami_from_instance" "asgard_golden_image" {
+  name               = "asgard-web-v1"
+  source_instance_id = aws_instance.asgard_ec2.id
+  
+  # Best Practice: set to false to ensure file system consistency
+  snapshot_without_reboot = false 
+
+  tags = {
+    Name = "AsgardGoldenImage"
+  }
+}
+
+# Launch new EC2 Instance in AZ A from custom AMI
+resource "aws_instance" "asgard_ec2" {
+  ami           = aws_ami_from_instance.asgard_golden_image.id
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.subnet_1.id
+  vpc_security_group_ids      = [aws_security_group.ec2_vpc_sg.id]
+  key_name      = "ec2-key-pair" # Replace with your key name
+  
+  tags = { Name = "Asgard-EC2-Custom-AMI" }
+}
+
+# Copy the AMI to another region (e.g., eu-west-1) for multi-region deployment
+resource "aws_ami_copy" "asgard_uk_image" {
+  name              = "asgard-web-uk-v1"
+  description       = "Multi-region copy of the Asgard web server"
+  source_ami_id     = aws_ami_from_instance.asgard_golden_image.id
+  source_ami_region = "us-east-1"
+  
+  # Crucial for security compliance in professional environments
+  encrypted         = true
+
+  # Provider for the new region (e.g., eu-west-1)
+  # provider          = aws.uk
+
+  tags = {
+    Name = "Asgard-UK-AMI"
+  }
+}
+
+# Grant launch permission to another Account ID to share AMI
+resource "aws_ami_launch_permission" "share_asgard_ami" {
+  image_id   = aws_ami_from_instance.asgard_golden_image.id
+  account_id = data.terraform_remote_state.foundation.outputs.prod_account_id # The ID of the target AWS account
+}
+
+# Sharing the underlying snapshot
+resource "aws_snapshot_create_volume_permission" "share_snapshot" {
+  snapshot_id = aws_ebs_snapshot.asgard_snapshot.id
+  account_id  = data.terraform_remote_state.foundation.outputs.prod_account_id
+}

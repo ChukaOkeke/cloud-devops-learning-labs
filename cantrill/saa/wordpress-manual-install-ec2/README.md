@@ -1,1 +1,0 @@
-This project creates an EC2 instance and manually installs web server and database server software, and wordpress
