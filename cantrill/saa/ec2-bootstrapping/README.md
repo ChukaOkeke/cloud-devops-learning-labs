@@ -1,2 +1,2 @@
-This project creates an ECS Fargate cluster
+This project bootstraps an EC2 instance
    
